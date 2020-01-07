@@ -31,7 +31,17 @@ inline void fixFileName(QDir dir)
                 break;
             }
         }
-        QFile::rename(dir.absoluteFilePath(it), dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        qDebug() << dir.absoluteFilePath(it);
+        qDebug() << dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg";
+//        qDebug() << QFile::rename(dir.absoluteFilePath(it), dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        QFile file(dir.absoluteFilePath(it));
+        qDebug() << file.fileName();
+        qDebug() << file.rename(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        qDebug() << file.exists();
+        qDebug() << file.errorString() << file.error();
+        qDebug() << file.copy(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        qDebug() << file.errorString() << file.error();
+        qDebug() << file.fileName() << "\n";
     }
 }
 
