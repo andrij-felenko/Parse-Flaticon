@@ -8,13 +8,14 @@
 
 inline void fixFileName(QDir dir)
 {
-    for (auto it : dir.entryList(QDir::Files)){
+    for (const auto &it : dir.entryList(QDir::Files)){
         if (it.right(4) != ".svg")
             continue;
         QString newName = it;
         newName.remove(newName.length() - 4, 4);
-        if (newName[0].isDigit() && newName[2].isDigit() && newName[3] == '-')
-            newName.remove(0, 4);
+        if (newName.size() > 4)
+            if (newName[0].isDigit() && newName[2].isDigit() && newName[3] == '-')
+                newName.remove(0, 4);
         newName.replace('-', '_').replace(' ', '_');
         if (newName + ".svg" == it)
             continue;
@@ -24,24 +25,28 @@ inline void fixFileName(QDir dir)
             QString posStr = "";
             if (newI != 0)
                 posStr = "_" + QString::number(newI);
-            if (dir.entryList(QDir::Files).contains(newName + posStr + ".svg"))
+            qDebug() << newName.toLower() + posStr + ".svg";
+            if (dir.entryList(QDir::Files).contains(newName.toLower() + posStr + ".svg"))
                 newI++;
             else {
                 newName += posStr;
                 break;
             }
         }
-        qDebug() << dir.absoluteFilePath(it);
-        qDebug() << dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg";
-//        qDebug() << QFile::rename(dir.absoluteFilePath(it), dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+
+        qDebug() << "Rename" << dir.absoluteFilePath(it) << QFile::rename(it, newName.replace('-', '_').replace('.', '_').toLower() + ".svg");
+        continue;
+        qDebug() << "\n------------------------------------------------------------------------------------------------";
+        qDebug() << "Handle file name:\n\tfrom " << dir.absoluteFilePath(it) << "\n\tto   "
+                 << dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg";
         QFile file(dir.absoluteFilePath(it));
-        qDebug() << file.fileName();
-        qDebug() << file.rename(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
-        qDebug() << file.exists();
-        qDebug() << file.errorString() << file.error();
-        qDebug() << file.copy(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
-        qDebug() << file.errorString() << file.error();
-        qDebug() << file.fileName() << "\n";
+        qDebug() << "exists :" << file.exists();
+        qDebug() << "rename :" << file.rename(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        qDebug() << "error  :" << file.error() << "[" << file.errorString() << "]\n";
+        qDebug() << "copy       :" << file.copy(dir.absoluteFilePath(newName.replace('-', '_').replace(' ', '_')).toLower() + ".svg");
+        qDebug() << "error      :" << file.errorString() << file.error();
+        qDebug() << "new name   :" << file.fileName();
+        qDebug() << "------------------------------------------------------------------------------------------------\n\n";
     }
 }
 
@@ -51,9 +56,9 @@ inline void rmdir(QDir dir, QString subDir)
     if (! subdir.cd(subDir))
         return;
     qDebug() << subdir.path() << subDir;
-    for (auto i : subdir.entryList(QDir::Files))
+    for (const auto &i : subdir.entryList(QDir::Files))
         subdir.remove(i);
-    for (auto i : subdir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot))
+    for (const auto &i : subdir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot))
         rmdir(subdir, i);
 
     dir.rmdir(subDir);
@@ -66,7 +71,7 @@ inline void createQbsFiles(QDir dir, QStringList dirList)
     if (file.open(QIODevice::Truncate | QIODevice::ReadWrite)){
         QTextStream stream(&file);
         stream << "import qbs\n\nProject {\n    references: [\n";
-        for (QString it : dirList)
+        for (const QString &it : dirList)
             stream << "        " << "\"" << it << "/" << it << ".qbs\",\n";
         stream << "    ]\n}";
         file.close();
@@ -74,7 +79,7 @@ inline void createQbsFiles(QDir dir, QStringList dirList)
     else
         qDebug() << "resource.qbs nor rewrite";
 
-    for (auto it : dirList){
+    for (const auto &it : dirList){
         QDir rcDir(dir.path() + "/" + it);
         fixFileName(rcDir);
 
@@ -98,28 +103,30 @@ inline void createCmakeFiles(QDir dir, QStringList dirList)
     QFile file(dir.absoluteFilePath("CMakeLists.txt"));
     if (file.open(QIODevice::Truncate | QIODevice::ReadWrite)){
         QTextStream stream(&file);
-        for (QString it : dirList)
+        for (const QString &it : dirList)
             stream << "add_subdirectory(" << it << ")\n";
         file.close();
     }
     else
         qDebug() << "cmake not rewrite";
 
-    for (auto it : dirList){
+    for (const auto &it : dirList){
         QDir rcDir(dir.path() + "/" + it);
         fixFileName(rcDir);
 
-        // create it.qbs
+        // create $ cmake
         QFile itFile(rcDir.absoluteFilePath("CMakeLists.txt"));
         if (itFile.open(QIODevice::Truncate | QIODevice::ReadWrite)){
             QTextStream stream(&itFile);
-            stream << "cmake_minimum_required(VERSION 3.14)\n"
+            stream << "cmake_minimum_required(VERSION 3.19)\n"
                       "project(rc_" << it << " VERSION 1.0.0)\n"
                       "\n"
                    << "set (CMAKE_AUTORCC ON)\n"
-                      "find_package(Qt5Core)\n"
-                      "add_library(rc_" << it << " rc.qrc)\n"
-                      "target_link_libraries(rc_" << it << " Qt5::Core)";
+                      "set (CMAKE_CXX_STANDARD 20)\n"
+                      "find_package(Qt6Core)\n"
+                      "\n"
+                      "add_library(rc_" << it << " rc_" << it << ".qrc)\n"
+                      "target_link_libraries(rc_" << it << " Qt6::Core)";
             itFile.close();
         }
         else
@@ -130,19 +137,19 @@ inline void createCmakeFiles(QDir dir, QStringList dirList)
 inline void changeFiles(QDir dir, QStringList dirList)
 {
     // move file to target directories, remove another files
-    for (QString it : dirList)
+    for (const QString &it : dirList)
         QFile::copy(dir.path() + "/" + it + "/license/license.html", dir.path() + "/" + it + "/license.html");
 
-    for (auto it : dirList){
+    for (const auto &it : dirList){
         QDir rcDir(dir.path() + "/" + it);
-        for (auto subdir : rcDir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot)){
+        for (const auto &subdir : rcDir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot)){
             if (subdir != "svg")
                 rmdir(rcDir, subdir);
         }
         QDir svgDir(rcDir);
         if (svgDir.cd("svg")){
             svgDir.setNameFilters({"*.svg"});
-            for (QString itSvg : svgDir.entryList(QDir::Files | QDir::NoDot | QDir::NoDotDot))
+            for (const QString &itSvg : svgDir.entryList(QDir::Files | QDir::NoDot | QDir::NoDotDot))
                 QFile::copy(svgDir.absoluteFilePath(itSvg), rcDir.absoluteFilePath(itSvg));
         }
         rmdir(rcDir, "svg");
@@ -154,7 +161,7 @@ inline void changeFiles(QDir dir, QStringList dirList)
         if (fileRcQrc.open(QIODevice::Truncate | QIODevice::ReadWrite)){
             QTextStream stream(&fileRcQrc);
             stream << "<RCC>\n    <qresource prefix=\"/icon/" + it + "\">\n";
-            for (QString svgFile : rcDir.entryList(QDir::Files | QDir::NoDot | QDir::NoDotDot))
+            for (const QString &svgFile : rcDir.entryList(QDir::Files | QDir::NoDot | QDir::NoDotDot))
                 stream << "        " << "<file>" + svgFile + "</file>\n";
             stream << "    </qresource>\n</RCC>";
             fileRcQrc.close();
