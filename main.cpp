@@ -103,6 +103,7 @@ inline void createCmakeFiles(QDir dir, QStringList dirList)
     QFile file(dir.absoluteFilePath("CMakeLists.txt"));
     if (file.open(QIODevice::Truncate | QIODevice::ReadWrite)){
         QTextStream stream(&file);
+        stream << "set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/lib)\n\n";
         for (const QString &it : dirList)
             stream << "add_subdirectory(" << it << ")\n";
         file.close();
