@@ -64,39 +64,6 @@ inline void rmdir(QDir dir, QString subDir)
     dir.rmdir(subDir);
 }
 
-inline void createQbsFiles(QDir dir, QStringList dirList)
-{
-    // update resource.qbs
-    QFile file(dir.absoluteFilePath("resource.qbs"));
-    if (file.open(QIODevice::Truncate | QIODevice::ReadWrite)){
-        QTextStream stream(&file);
-        stream << "import qbs\n\nProject {\n    references: [\n";
-        for (const QString &it : dirList)
-            stream << "        " << "\"" << it << "/" << it << ".qbs\",\n";
-        stream << "    ]\n}";
-        file.close();
-    }
-    else
-        qDebug() << "resource.qbs nor rewrite";
-
-    for (const auto &it : dirList){
-        QDir rcDir(dir.path() + "/" + it);
-        fixFileName(rcDir);
-
-        // create it.qbs
-        QFile itFile(rcDir.absoluteFilePath(it + ".qbs"));
-        if (itFile.open(QIODevice::Truncate | QIODevice::ReadWrite)){
-            QTextStream stream(&itFile);
-            stream << "import qbs\n"
-                   << "import \"../../templateQbs/templateLibRes.qbs\" as LibStaticRes\n\n"
-                   << "LibStaticRes {\n    resourceName: \"" + it + "\"\n}";
-            itFile.close();
-        }
-        else
-            qDebug() << "rc.qbs nor rewrite";
-    }
-}
-
 inline void createCmakeFiles(QDir dir, QStringList dirList)
 {
     // update resource.qbs
@@ -195,7 +162,6 @@ int main(int argc, char** argv)
     qDebug() << dir.path() << "\n" << dirList;
 
     changeFiles(dir, dirList);
-    createQbsFiles(dir, dirList);
     createCmakeFiles(dir, dirList);
 
     return 0;
